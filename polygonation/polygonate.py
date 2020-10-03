@@ -14,8 +14,6 @@ rwijtvliet@gmail.com
 import numpy as np
 from scipy.spatial import Delaunay, ConvexHull
 from typing import Iterable
-from shapely.geometry import Point
-from shapely.geometry.polygon import Polygon
 
 
 class Polygonate:
@@ -36,14 +34,21 @@ class Polygonate:
         self.__convex = convex
         self.__shapes, self.__neighbors_of_shapes = \
             self.__polygonation(pickwall)
-        self.__shapelypolygons = [Polygon(self.__points[s]) for s in self.__shapes] 
+        self.__descendent = self.__find_descedent()
+    
+    @property
+    def points(self):
+        """The (x, y) coordinates of the points."""
+        return self.__points
     
     @property
     def vertices(self):
+        """The point-indices of the vertices of each shape."""
         return self.__shapes
     
     @property
-    def shapes(self):
+    def shapes(self):        
+        """The point-indices of the vertices of each shape."""
         return self.__shapes
     
     @property
@@ -93,12 +98,39 @@ class Polygonate:
         
         return shapes, neighbors_of_shapes
     
+    @staticmethod
+    def point_inside_polygon(x, y, poly):
+        n = len(poly)
+        inside = False
+        p1x,p1y = poly[0]
+        for i in range(n+1):
+            p2x,p2y = poly[i % n]
+            if y > min(p1y,p2y):
+                if y <= max(p1y,p2y):
+                    if x <= max(p1x,p2x):
+                        if p1y != p2y:
+                            xinters = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
+                        if p1x == p2x or x <= xinters:
+                            inside = not inside
+            p1x,p1y = p2x,p2y
+        return inside
+    
+    def __find_descedent(self): #For each delaunay simplex, find shape it went into.
+        descendent = []
+        for sim in self.__delaunay.simplices:
+            for s, shape in enumerate(self.__shapes):
+                if len(np.intersect1d(sim, shape)) == len(sim):
+                    descendent.append(s)
+                    break
+            else:
+                raise ValueError(f'Cannot find child shape of simplex {sim}.')
+        return descendent
+        
     def find_shape(self, point:Iterable):
-        """Returns index of shape that contain the point."""
-        point = Point(*point)
-        for s, poly in enumerate(self.__shapelypolygons):
-            if poly.contains(point):
-                return s
+        """Returns index of shape that contain the point."""  
+        sim = self.__delaunay.find_simplex(point)
+        if sim > -1:
+            return self.__descendent[sim]
         return -1
     
     def _candidates(self, shapes, neighbors_of_shapes):
