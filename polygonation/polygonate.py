@@ -156,35 +156,36 @@ def plotremovablewalls(ax, points, **kwargs):
     cands = candidates(points, delaunay.simplices, delaunay.neighbors)
     for w in [cand['wall'] for cand in cands]:
         ax.plot(*points[w, :].T, **{'color':'k', **kwargs})
-def plotpolygon(ax, points, shapes, **kwargs):
+def plotpolygons(ax, points, shapes, **kwargs):
     for shape in shapes:
         for vi in zip(shape, np.roll(shape, 1)):
             ax.plot(*points[vi,:].T, **{'color':'b', **kwargs})
 
-n = 20
-points = np.random.rand(n*2).reshape(-1, 2)
+if __name__ == '__main__':
+    n = 20
+    points = np.random.rand(n*2).reshape(-1, 2)
 
-
-fig, axes = plt.subplots(2, 3,  figsize=(19, 12))
-for i, j in np.ndindex(axes.shape):
-    ax = axes[i, j]
-    if i==j==0: continue
-    kwargs = {'alpha': 0.2, 'linestyle': '-'} if i == 1 else {}
-    plotdelaunay(ax, points, **kwargs)
-axes[0,0].set_title('original points')
-axes[0,1].set_title('Delaunay grid')
-axes[0,2].set_title('removable walls')
-plotremovablewalls(axes[0,2], points, color='red')
-axes[1,0].set_title('removed shortest walls first')
-plotpolygon(axes[1,0], points, polygonate(points, 'short'), color='b')
-axes[1,1].set_title('removed longest walls first')
-plotpolygon(axes[1,1], points, polygonate(points, 'long'), color='b')
-axes[1,2].set_title('removed most acute angle first')
-plotpolygon(axes[1,2], points, polygonate(points, 'sharp'), color='b')
-
-for i, j in np.ndindex(axes.shape):
-    ax = axes[i, j]
-    plotpoints(ax, points)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    for s in ax.spines.values(): s.set_visible(False)
+    
+    fig, axes = plt.subplots(2, 3,  figsize=(19, 12))
+    for i, j in np.ndindex(axes.shape):
+        ax = axes[i, j]
+        if i==j==0: continue
+        kwargs = {'alpha': 0.2, 'linestyle': '-'} if i == 1 else {}
+        plotdelaunay(ax, points, **kwargs)
+    axes[0,0].set_title('original points')
+    axes[0,1].set_title('Delaunay grid')
+    axes[0,2].set_title('removable walls')
+    plotremovablewalls(axes[0,2], points, color='red')
+    axes[1,0].set_title('removed shortest walls first')
+    plotpolygons(axes[1,0], points, polygonate(points, 'short'), color='b')
+    axes[1,1].set_title('removed longest walls first')
+    plotpolygons(axes[1,1], points, polygonate(points, 'long'), color='b')
+    axes[1,2].set_title('removed most acute angle first')
+    plotpolygons(axes[1,2], points, polygonate(points, 'sharp'), color='b')
+    
+    for i, j in np.ndindex(axes.shape):
+        ax = axes[i, j]
+        plotpoints(ax, points)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for s in ax.spines.values(): s.set_visible(False)
