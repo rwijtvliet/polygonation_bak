@@ -10,12 +10,12 @@ Sample use, finding a set of convex polygons:
 ```python
 n = 20
 points = np.random.rand(n*2).reshape(-1, 2)
-polygons = polygonate(points, 'acute', convex=True)
+pg = Polygonate(points)
 # drawing the result
 fig, ax = plt.subplots(1, 1, figsize=(10,10))
-plotdelaunay(ax, points, alpha=0.2)
-plotpolygons(ax, points, polygons)
-plotpoints(ax, points)
+pg.plotdelaunay(ax, alpha=0.2)
+pg.plotpolygons(ax)
+pg.plotpoints(ax)
 ```
 ![sample use](sampleuse20convex.png)
 
@@ -23,12 +23,12 @@ And finding a set of polygons when letting go of the convex criterion:
 ```python
 n = 20
 points = np.random.rand(n*2).reshape(-1, 2)
-polygons = polygonate(points, 'acute', convex=False)
+pg = Polygonate(points, convex=False)
 # drawing the result
 fig, ax = plt.subplots(1, 1, figsize=(10,10))
-plotdelaunay(ax, points, alpha=0.2)
-plotpolygons(ax, points, polygons)
-plotpoints(ax, points)
+pg.plotdelaunay(ax, alpha=0.2)
+pg.plotpolygons(ax)
+pg.plotpoints(ax)
 ```
 
 ![sample use](sampleuse20notconvex.png)
