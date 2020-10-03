@@ -12,21 +12,10 @@ rwijtvliet@gmail.com
 """
 
 import numpy as np
-from matplotlib import pylab as plt
 from scipy.spatial import Delaunay, ConvexHull
 from typing import Iterable
 
-
-# Find out, which lines could be removed and keep convexness of shape.
-# Method: check each pair of neighboring shapes, and see, if union of them
-# would still be convex.
-# How to check for convexness of a shape:
-# . possibility 1: all points are in the convex hull.
-# . possibility 2: going around the polygon, the angle change between 
-#   consequetive lines always has the same sign --> only works in 2D
-
-
-def candidates(points, shapes=None, neighbors_of_shapes=None):
+def _candidates(points, shapes=None, neighbors_of_shapes=None, convex:bool=True):
     """
     Find the walls that could be removed while still keeping the resulting 
     shape convex. Also store additional information, such as wall length
@@ -45,9 +34,12 @@ def candidates(points, shapes=None, neighbors_of_shapes=None):
         return shape
     def vec(*vi):
         return points[vi[1]] - points[vi[0]]
-    def cosangle(vecA, vecB):
+    def angle(vecA, vecB):
         cosangle = np.dot(vecA, vecB) / (np.linalg.norm(vecA) * np.linalg.norm(vecB))
-        return abs(cosangle)
+        return np.arccos(np.clip(cosangle, -1, 1))
+    def PolyArea(vi):
+        x, y = points[vi, 0], points[vi, 1]
+        return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
     
     candidates = []
     for si1, neighbors in enumerate(neighbors_of_shapes):
@@ -57,33 +49,42 @@ def candidates(points, shapes=None, neighbors_of_shapes=None):
             shape2 = shapes[si2] 
             # Find vertices of shared wall.
             wall = np.intersect1d(shape1, shape2)
-            # Prepare by putting wall vertice 0 at position 0 in each shape
+            if len(wall) != 2: continue
+            # Prepare by putting wall vertice 0 (1) at position 0 (-1) in each shape
             shape1, shape2 = prepshape(shape1, wall), prepshape(shape2, wall)
             # Get candidate-polygon
-            shape3 = [*shape1[:-1], *np.flip(shape2)[:-1]]
-            if len(ConvexHull(points[shape3]).vertices) == len(shape3):
-                #Yes, it's still convex, so wall can be removed
-                wallvec = vec(*wall)
-                walllen = np.linalg.norm(wallvec)
-                cosangles = np.array([cosangle(wallvec, vec(*vi)) for vi in
-                             [shape1[:2], shape1[-2:], shape2[:2], shape2[-2:]]])
-                candidates.append({
-                    'wall': [*wall],
-                    'si': [si1, si2], 
-                    'shape3': shape3,
-                    'charst': {'len':walllen, 'cosangles': -np.sort(-cosangles)}})
+            shape3 = [*shape1[:-1], *shape2[::-1][:-1]]
+            h3 = ConvexHull(points[shape3]).vertices
+            if convex and len(h3) != len(shape3): continue
+            # Add characteristics.
+            wallvec = vec(*wall) # pointing 0->1
+            # Vectors pointing along the edges, starting at where wall is.
+            vecs = [[vec(*vi) for vi in [shape1[:2], shape2[:2]]],
+                    [vec(*vi) for vi in [shape1[-2:], shape2[-2:]]]]
+            angles = np.array([[angle(wallvec, v) for v in vec] for vec in vecs]) #angles at corner 0, angles at corner 1
+            candidates.append({
+                'wall': [*wall],
+                'si': [si1, si2], 
+                'shape3': shape3,
+                'len': np.linalg.norm(wallvec),
+                'angles_before': angles,
+                'angles_after': angles.sum(axis=1),
+                'error': np.abs(angles.sum(axis=1) - (np.pi * (1 - 2/len(shape3)))).mean()
+                })
     return candidates
 
-def polygonate(points:Iterable, pickwall:str):
+
+def polygonate(points:Iterable, pickwall:str, convex:bool=True):
     """
     Turn a set of points into a set of convex polygons.
     
     Arguments:
         points: Iterable of (x, y)-points
         pickwall: 
-            'long'(est) to remove the longest walls first;
-            'short'(est) to remove the shortest walls first; 
-            'sharp'(est) to remove the most accute angles first (default)
+            'long'to remove the longest walls first;
+            'acute' to remove the most acute angles first (default);
+            'round' to remove wall to create polygon with roundest corners.
+        convex: True if resulting polygons must be convex (default).
     
     Returns:
         array of polygons; each polygon being a list of point-indices for its
@@ -93,13 +94,14 @@ def polygonate(points:Iterable, pickwall:str):
     shapes = delaunay.simplices.tolist()
     neighbors_of_shapes = [[si for si in neighbors if si != -1] 
                            for neighbors in delaunay.neighbors]
-    if pickwall.startswith('short'):
-        pickwallfunc = lambda cands: np.argmin([cand['charst']['len'] for cand in cands])
-    elif pickwall.startswith('long'):
-        pickwallfunc = lambda cands: np.argmax([cand['charst']['len'] for cand in cands])
+    
+    if pickwall.startswith('long'):
+        pickwallfunc = lambda cands: np.argmax([cand['len'] for cand in cands])
+    elif pickwall.startswith('round'):
+        pickwallfunc = lambda cands: np.argmin([cand['error'] for cand in cands])
     else:
-        pickwallfunc = lambda cands: np.argmax([cand['charst']['cosangles'][0] for cand in cands])
-        
+        pickwallfunc = lambda cands: np.argmin([cand['angles_before'].min() for cand in cands])
+
     def melt(si1, si2, shape3): #remove shapes with indices si1 and si2. Add shape with vertices shape3.
         nonlocal shapes, neighbors_of_shapes
         if si1 > si2: si1, si2 = si2, si1
@@ -110,37 +112,25 @@ def polygonate(points:Iterable, pickwall:str):
         nei3 = [*neighbors_of_shapes.pop(si2), *neighbors_of_shapes.pop(si1)]
         nei3 = [si for si in nei3 if si != si1 and si != si2]
         neighbors_of_shapes.append(nei3)
-        neighbors_of_shapes2 = []
-        for neighbors in neighbors_of_shapes:
-            neighbors2 = []
-            for si in neighbors:
-                if si == si1 or si == si2:
-                    neighbors2.append(si3)
-                elif si < si1:
-                    neighbors2.append(si)  
-                elif si < si2:
-                    neighbors2.append(si-1)
-                else:
-                    neighbors2.append(si-2)
-            neighbors_of_shapes2.append(neighbors2)
-        neighbors_of_shapes = neighbors_of_shapes2
+        def new_si(si):
+            if si==si1 or si==si2: return si3
+            if si<si1: return si
+            if si<si2: return si-1
+            return si-2
+        neighbors_of_shapes = [[new_si(si) for si in neighbors] 
+                               for neighbors in neighbors_of_shapes]
     
     while True:
-        cands = candidates(points, shapes, neighbors_of_shapes)
-       
+        cands = _candidates(points, shapes, neighbors_of_shapes, convex=convex)
         if len(cands) == 0: break
         # Find which one to remove.
         picked = cands[pickwallfunc(cands)]
         melt(*picked['si'], picked['shape3'])
-
-        # fig, ax = plt.subplots(1,1, figsize=(10,10))
-        # plotpolygon(ax, points, shapes)
-        # ax.plot(*points[picked['wall']].T, 'r')
     
     return shapes
 
 
-# Draw and sample use.
+# Draw.
 
 def plotpoints(ax, points, **kwargs):
     ax.plot(*points.T, 'ko', **kwargs)
@@ -151,41 +141,12 @@ def plotdelaunay(ax, points, **kwargs):
         for vi2 in indices[indptr[vi1]:indptr[vi1+1]]:
             if vi1 < vi2:
                 ax.plot(*points[[vi1, vi2],:].T, 'k', **{'alpha':1, **kwargs})
-def plotremovablewalls(ax, points, **kwargs):
+def plotremovablewalls(ax, points, convex:bool=True, **kwargs):
     delaunay = Delaunay(points)
-    cands = candidates(points, delaunay.simplices, delaunay.neighbors)
+    cands = _candidates(points, delaunay.simplices, delaunay.neighbors, convex=convex)
     for w in [cand['wall'] for cand in cands]:
         ax.plot(*points[w, :].T, **{'color':'k', **kwargs})
 def plotpolygons(ax, points, shapes, **kwargs):
     for shape in shapes:
         for vi in zip(shape, np.roll(shape, 1)):
             ax.plot(*points[vi,:].T, **{'color':'b', **kwargs})
-
-if __name__ == '__main__':
-    n = 20
-    points = np.random.rand(n*2).reshape(-1, 2)
-
-    
-    fig, axes = plt.subplots(2, 3,  figsize=(19, 12))
-    for i, j in np.ndindex(axes.shape):
-        ax = axes[i, j]
-        if i==j==0: continue
-        kwargs = {'alpha': 0.2, 'linestyle': '-'} if i == 1 else {}
-        plotdelaunay(ax, points, **kwargs)
-    axes[0,0].set_title('original points')
-    axes[0,1].set_title('Delaunay grid')
-    axes[0,2].set_title('removable walls')
-    plotremovablewalls(axes[0,2], points, color='red')
-    axes[1,0].set_title('removed shortest walls first')
-    plotpolygons(axes[1,0], points, polygonate(points, 'short'), color='b')
-    axes[1,1].set_title('removed longest walls first')
-    plotpolygons(axes[1,1], points, polygonate(points, 'long'), color='b')
-    axes[1,2].set_title('removed most acute angle first')
-    plotpolygons(axes[1,2], points, polygonate(points, 'sharp'), color='b')
-    
-    for i, j in np.ndindex(axes.shape):
-        ax = axes[i, j]
-        plotpoints(ax, points)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        for s in ax.spines.values(): s.set_visible(False)
