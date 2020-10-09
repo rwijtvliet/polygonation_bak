@@ -98,23 +98,6 @@ class Polygonate:
         
         return shapes, neighbors_of_shapes
     
-    @staticmethod
-    def point_inside_polygon(x, y, poly):
-        n = len(poly)
-        inside = False
-        p1x,p1y = poly[0]
-        for i in range(n+1):
-            p2x,p2y = poly[i % n]
-            if y > min(p1y,p2y):
-                if y <= max(p1y,p2y):
-                    if x <= max(p1x,p2x):
-                        if p1y != p2y:
-                            xinters = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
-                        if p1x == p2x or x <= xinters:
-                            inside = not inside
-            p1x,p1y = p2x,p2y
-        return inside
-    
     def __find_descedent(self): #For each delaunay simplex, find shape it went into.
         descendent = []
         for sim in self.__delaunay.simplices:
@@ -135,9 +118,8 @@ class Polygonate:
     
     def _candidates(self, shapes, neighbors_of_shapes):
         """
-        Find the walls that could be removed while still keeping the resulting 
-        shape convex. Also store additional information, such as wall length
-        and existing angles.
+        Find the edges that could be removed. Also store additional information, 
+        such as wall length and existing angles.
         """
         def prepshape(shape, wall): #rotate/flip shape so, that wall[0] is at start and wall[1] is at end.
             while len(np.intersect1d(shape[0:2], wall)) != 2:
