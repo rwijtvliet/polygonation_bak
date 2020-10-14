@@ -12,10 +12,32 @@ rwijtvliet@gmail.com
 """
 
 import numpy as np
-from scipy.spatial import Delaunay, ConvexHull
+from scipy.spatial import Delaunay
 from typing import Iterable
 
+    
+def is_convex_polygon(polygon):
+    """Return True if the polynomial defined by the sequence of 2D
+    points is convex, which is the case if 'driving around the polygon'
+    means 'always steer to the left' or 'always steer to the right'. No checks
+    are done for complex cases such as self-intersecting polygons etc.
+    """
+    polygon = np.array(polygon)
+    if len(polygon) < 3: # Check for too few points
+        return False
+    orientation = 0
+    for p1, p2, p3 in zip(*[np.roll(polygon, i, axis=0) for i in range(3)]):
+        dxa, dya = p2 - p1
+        dxb, dyb = p3 - p2
+        cross = dxa*dyb - dya*dxb
+        if not np.isclose(cross, 0.0):
+            if orientation == 0:
+                orientation = np.sign(cross)
+            elif orientation != np.sign(cross):
+                return False
+    return True
 
+    
 class Polygonate:
     """
     Turn a set of points into a set of polygons.
@@ -107,14 +129,14 @@ class Polygonate:
                     break
             else:
                 raise ValueError(f'Cannot find child shape of simplex {sim}.')
-        return descendent
-        
+        return descendent    
+    
     def find_shape(self, point:Iterable):
         """Returns index of shape that contain the point."""  
         sim = self.__delaunay.find_simplex(point)
         if sim > -1:
             return self.__descendent[sim]
-        return -1
+        return -1    
     
     def _candidates(self, shapes, neighbors_of_shapes):
         """
@@ -135,7 +157,7 @@ class Polygonate:
             return np.arccos(np.clip(cosangle, -1, 1))
         def PolyArea(vi):
             x, y = self.__points[vi, 0], self.__points[vi, 1]
-            return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
+            return 0.5*np.abs(np.dot(x, np.roll(y,1)) - np.dot(y, np.roll(x,1)))
         
         candidates = []
         for si1, neighbors in enumerate(neighbors_of_shapes):
@@ -150,8 +172,8 @@ class Polygonate:
                 shape1, shape2 = prepshape(shape1, wall), prepshape(shape2, wall)
                 # Get candidate-polygon
                 shape3 = [*shape1[:-1], *shape2[::-1][:-1]]
-                h3 = ConvexHull(self.__points[shape3]).vertices
-                if self.__convex and len(h3) != len(shape3): continue
+                if self.__convex and not is_convex_polygon(self.__points[shape3]): 
+                    continue
                 # Add characteristics.
                 wallvec = vec(*wall) # pointing 0->1
                 # Vectors pointing along the edges, starting at where wall is.
@@ -169,19 +191,19 @@ class Polygonate:
                     })
         return candidates
 
-    def plotpoints(self, ax, **kwargs):
-        ax.plot(*self.__points.T, 'ko', **kwargs)
-    def plotdelaunay(self, ax, **kwargs):
+    def plotpoints(self, ax, *args, **kwargs):
+        ax.plot(*self.__points.T, *args, **kwargs)
+    def plotdelaunay(self, ax, *args, **kwargs):
         indptr, indices = self.__delaunay.vertex_neighbor_vertices
         for vi1 in np.arange(len(self.__points)):
             for vi2 in indices[indptr[vi1]:indptr[vi1+1]]:
                 if vi1 < vi2:
-                    ax.plot(*self.__points[[vi1, vi2],:].T, 'k', **{'alpha':1, **kwargs})
-    def plotremovablewalls(self, ax, **kwargs):
+                    ax.plot(*self.__points[[vi1, vi2],:].T, *args, **{'alpha':1, **kwargs})
+    def plotremovablewalls(self, ax, *args, **kwargs):
         cands = self._candidates(self.__delaunay.simplices, self.__delaunay.neighbors)
         for w in [cand['wall'] for cand in cands]:
-            ax.plot(*self.__points[w, :].T, **{'color':'k', **kwargs})
-    def plotpolygons(self, ax, **kwargs):
+            ax.plot(*self.__points[w, :].T, *args, **{'color':'k', **kwargs})
+    def plotpolygons(self, ax, *args, **kwargs):
         for shape in self.__shapes:
             for vi in zip(shape, np.roll(shape, 1)):
-                ax.plot(*self.__points[vi,:].T, **{'color':'b', **kwargs})
+                ax.plot(*self.__points[vi,:].T, *args, **{'color':'b', **kwargs})

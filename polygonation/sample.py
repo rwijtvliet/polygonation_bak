@@ -13,7 +13,7 @@ pg = Polygonate(points)
 fig, ax = plt.subplots(1, 1, figsize=(10,10))
 pg.plotdelaunay(ax, alpha=0.2)
 pg.plotpolygons(ax)
-pg.plotpoints(ax)
+pg.plotpoints(ax, 'ko')
 ax.set_xticks([])
 ax.set_yticks([])
 
@@ -34,10 +34,10 @@ for convex in [True, False]:
         for s in ax.spines.values(): s.set_visible(False)
         if i==j==0: continue
         kwargs = {'alpha': 0.1} if i > 0 else {}
-        pg.plotdelaunay(ax, **kwargs)
+        pg.plotdelaunay(ax, 'k', **kwargs)
     fig.suptitle(f'Polygons must be convex: {convex}')
     axes[0,0].set_title('points')
-    pg.plotpoints(axes[0,0])
+    pg.plotpoints(axes[0,0], 'ko')
     axes[0,1].set_title('Delaunay grid')
     axes[0,2].set_title('removable walls')
     pg.plotremovablewalls(axes[0,2], color='r')
