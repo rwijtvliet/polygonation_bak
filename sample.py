@@ -1,3 +1,7 @@
+"""
+Sample use of the Polygonate class.
+"""
+
 from polygonation.polygonate import Polygonate
 import numpy as np
 from matplotlib import pyplot as plt
@@ -39,13 +43,13 @@ for convex in [True, False]:
     axes[0,0].set_title('points')
     pg.plotpoints(axes[0,0], 'ko')
     axes[0,1].set_title('Delaunay grid')
-    axes[0,2].set_title('removable walls')
+    axes[0,2].set_title('removable edges')
     pg.plotremovablewalls(axes[0,2], color='r')
-    axes[1,0].set_title('remove longest walls first')
+    axes[1,0].set_title('remove longest edge first')
     pg.plotpolygons(axes[1,0], color='b')
     axes[1,1].set_title('remove acute angles first')
     Polygonate(points, 'acute', convex=convex).plotpolygons(axes[1,1], color='b')
-    axes[1,2].set_title('remove wall that produces roundest polygon')
+    axes[1,2].set_title('remove edge that produces "roundest" polygon')
     Polygonate(points, 'round', convex=convex).plotpolygons(axes[1,2], color='b')
     
     fig.tight_layout()

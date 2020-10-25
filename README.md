@@ -2,9 +2,9 @@
 
 Small scipt to divide the convex hull around a set of points up into polygons.
 
-Done by identifying the removable edges, and then removing one of them by some selection criterion. Rinse-repeat until no further walls can be removed.
+Done by identifying the removable edges, and then removing one of them by some selection criterion. Rinse-repeat until no further edges can be removed.
 
-Not optimized or anything. For example, all candidiates are recalculated after removing a wall, and the Delaunay grid is calculated several times.
+Not optimized or anything. For example, all candidiates are recalculated after removing an edge.
 
 Sample use, finding a set of convex polygons:
 ```python
@@ -17,7 +17,7 @@ pg.plotdelaunay(ax, alpha=0.2)
 pg.plotpolygons(ax)
 pg.plotpoints(ax)
 ```
-![sample use](sampleuse20convex.png)
+![sample use](img/sampleuse20convex.png)
 
 And finding a set of polygons when letting go of the convex criterion:
 ```python
@@ -31,7 +31,7 @@ pg.plotpolygons(ax)
 pg.plotpoints(ax)
 ```
 
-![sample use](sampleuse20notconvex.png)
+![sample use](img/sampleuse20notconvex.png)
 
 ---
 
@@ -39,8 +39,8 @@ There are 3 options for picking which edge to remove; here is a comparison:
 
 `convex=True`
 
-![](comparison150convex.png)
+![](img/comparison150convex.png)
 
 `convex=False`
 
-![](comparison150notconvex.png)
+![](img/comparison150notconvex.png)
